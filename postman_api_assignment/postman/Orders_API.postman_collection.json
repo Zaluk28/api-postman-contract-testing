@@ -1,0 +1,831 @@
+{
+  "info": {
+    "_postman_id": "fefcb59a-f355-4263-b412-3f3a5c665411",
+    "name": "Orders API - Functional and Contract Tests",
+    "description": "14 matrix cases. TC-014 intentionally uses three requests to verify idempotent final effect. Body-schema tests are not claimed as full OpenAPI conformance.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.environment.get(\"runId\")) {",
+          "  const runId = Date.now().toString();",
+          "  pm.environment.set(\"runId\", runId);",
+          "  pm.environment.set(\"userA\", \"qa_user_a_\" + runId);",
+          "  pm.environment.set(\"userB\", \"qa_user_b_\" + runId);",
+          "  pm.environment.set(\"passA\", \"TempA!\" + runId);",
+          "  pm.environment.set(\"passB\", \"TempB!\" + runId);",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "TC-001 Register valid user A",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\":\"{{userA}}\",\"password\":\"{{passA}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const runId = Date.now().toString() + \"_\" + Math.floor(Math.random()*100000);",
+              "pm.environment.set(\"runId\", runId);",
+              "pm.environment.set(\"userA\", \"qa_user_a_\" + runId);",
+              "pm.environment.set(\"userB\", \"qa_user_b_\" + runId);",
+              "pm.environment.set(\"passA\", \"TempA!\" + runId);",
+              "pm.environment.set(\"passB\", \"TempB!\" + runId);",
+              "[\"tokenA\",\"tokenB\",\"userAId\",\"userBId\",\"orderAId\",\"confirmedAtFirst\"].forEach(k => pm.environment.unset(k));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "pm.test(\"TC-001 status 201\", () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test(\"TC-001 auth response fields\", () => {",
+              "  pm.expect(body).to.have.property(\"accessToken\").that.is.a(\"string\");",
+              "  pm.expect(body.tokenType).to.eql(\"Bearer\");",
+              "  pm.expect(body.user.username).to.eql(pm.environment.get(\"userA\"));",
+              "});",
+              "pm.environment.set(\"tokenA\", body.accessToken);",
+              "pm.environment.set(\"userAId\", body.user.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-002 Register valid user B",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\":\"{{userB}}\",\"password\":\"{{passB}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "pm.test(\"TC-002 status 201\", () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test(\"TC-002 second user created\", () => pm.expect(body.user.username).to.eql(pm.environment.get(\"userB\")));",
+              "pm.environment.set(\"tokenB\", body.accessToken);",
+              "pm.environment.set(\"userBId\", body.user.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-003 Missing required password",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\":\"missing_password_{{runId}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "pm.test(\"TC-003 status 400\", () => pm.response.to.have.status(400));",
+              "const schema = {\"type\": \"object\", \"required\": [\"error\"], \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"properties\": {\"code\": {\"type\": \"string\"}, \"message\": {\"type\": \"string\"}}}}};",
+              "pm.test(\"TC-003 error body schema\", () => pm.response.to.have.jsonSchema(schema));",
+              "pm.test(\"TC-003 validation error code\", () => pm.expect(pm.response.json().error.code).to.eql(\"VALIDATION_ERROR\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-004 Login user A valid",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\":\"{{userA}}\",\"password\":\"{{passA}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "pm.test(\"TC-004 status 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"TC-004 returns bearer token\", () => {",
+              "  pm.expect(body.accessToken).to.be.a(\"string\").and.not.empty;",
+              "  pm.expect(body.tokenType).to.eql(\"Bearer\");",
+              "});",
+              "pm.environment.set(\"tokenA\", body.accessToken);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-005 Login invalid password",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\":\"{{userA}}\",\"password\":\"wrong-password\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "pm.test(\"TC-005 status 401\", () => pm.response.to.have.status(401));",
+              "const schema = {\"type\": \"object\", \"required\": [\"error\"], \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"properties\": {\"code\": {\"type\": \"string\"}, \"message\": {\"type\": \"string\"}}}}};",
+              "pm.test(\"TC-005 error body schema\", () => pm.response.to.have.jsonSchema(schema));",
+              "pm.test(\"TC-005 invalid credentials code\", () => pm.expect(pm.response.json().error.code).to.eql(\"INVALID_CREDENTIALS\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-006 Create valid protected order",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/orders",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "orders"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"item\":\"Keyboard\",\"quantity\":2}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "pm.test(\"TC-006 status 201\", () => pm.response.to.have.status(201));",
+              "const schema = {\"type\": \"object\", \"required\": [\"id\", \"ownerId\", \"item\", \"quantity\", \"totalAmount\", \"status\", \"createdAt\", \"confirmedAt\"], \"properties\": {\"id\": {\"type\": \"string\"}, \"ownerId\": {\"type\": \"string\"}, \"item\": {\"type\": \"string\"}, \"quantity\": {\"type\": \"integer\"}, \"totalAmount\": {\"type\": \"number\"}, \"status\": {\"type\": \"string\"}, \"createdAt\": {\"type\": \"string\"}, \"confirmedAt\": {\"anyOf\": [{\"type\": \"string\"}, {\"type\": \"null\"}]}}};",
+              "pm.test(\"TC-006 success body schema\", () => pm.response.to.have.jsonSchema(schema));",
+              "const body = pm.response.json();",
+              "pm.test(\"TC-006 business rules\", () => {",
+              "  pm.expect(body.item).to.eql(\"Keyboard\");",
+              "  pm.expect(body.quantity).to.eql(2);",
+              "  pm.expect(body.totalAmount).to.eql(20);",
+              "  pm.expect(body.status).to.eql(\"created\");",
+              "  pm.expect(body.ownerId).to.eql(pm.environment.get(\"userAId\"));",
+              "});",
+              "pm.environment.set(\"orderAId\", body.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-007 Create order missing mandatory item",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/orders",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "orders"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"quantity\":2}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "pm.test(\"TC-007 status 400\", () => pm.response.to.have.status(400));",
+              "const schema = {\"type\": \"object\", \"required\": [\"error\"], \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"properties\": {\"code\": {\"type\": \"string\"}, \"message\": {\"type\": \"string\"}}}}};",
+              "pm.test(\"TC-007 error body schema\", () => pm.response.to.have.jsonSchema(schema));",
+              "pm.test(\"TC-007 mandatory field enforced\", () => pm.expect(pm.response.json().error.code).to.eql(\"VALIDATION_ERROR\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-008 Protected request without credentials",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/orders",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "orders"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"item\":\"Mouse\",\"quantity\":1}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "pm.test(\"TC-008 status 401\", () => pm.response.to.have.status(401));",
+              "const schema = {\"type\": \"object\", \"required\": [\"error\"], \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"properties\": {\"code\": {\"type\": \"string\"}, \"message\": {\"type\": \"string\"}}}}};",
+              "pm.test(\"TC-008 error body schema\", () => pm.response.to.have.jsonSchema(schema));",
+              "pm.test(\"TC-008 auth required\", () => pm.expect(pm.response.json().error.code).to.eql(\"AUTH_REQUIRED\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-009 Protected request with invalid token",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer not-a-valid-token"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/orders/{{orderAId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "orders",
+            "{{orderAId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "pm.test(\"TC-009 status 401\", () => pm.response.to.have.status(401));",
+              "const schema = {\"type\": \"object\", \"required\": [\"error\"], \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"properties\": {\"code\": {\"type\": \"string\"}, \"message\": {\"type\": \"string\"}}}}};",
+              "pm.test(\"TC-009 error body schema\", () => pm.response.to.have.jsonSchema(schema));",
+              "pm.test(\"TC-009 invalid token rejected\", () => pm.expect(pm.response.json().error.code).to.eql(\"INVALID_TOKEN\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-010 Get own order and verify persistence",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/orders/{{orderAId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "orders",
+            "{{orderAId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "pm.test(\"TC-010 status 200\", () => pm.response.to.have.status(200));",
+              "const schema = {\"type\": \"object\", \"required\": [\"id\", \"ownerId\", \"item\", \"quantity\", \"totalAmount\", \"status\", \"createdAt\", \"confirmedAt\"], \"properties\": {\"id\": {\"type\": \"string\"}, \"ownerId\": {\"type\": \"string\"}, \"item\": {\"type\": \"string\"}, \"quantity\": {\"type\": \"integer\"}, \"totalAmount\": {\"type\": \"number\"}, \"status\": {\"type\": \"string\"}, \"createdAt\": {\"type\": \"string\"}, \"confirmedAt\": {\"anyOf\": [{\"type\": \"string\"}, {\"type\": \"null\"}]}}};",
+              "pm.test(\"TC-010 body schema contract\", () => pm.response.to.have.jsonSchema(schema));",
+              "const body = pm.response.json();",
+              "pm.test(\"TC-010 verifies persisted change\", () => {",
+              "  pm.expect(body.id).to.eql(pm.environment.get(\"orderAId\"));",
+              "  pm.expect(body.item).to.eql(\"Keyboard\");",
+              "  pm.expect(body.quantity).to.eql(2);",
+              "  pm.expect(body.status).to.eql(\"created\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-011 User B cannot access user A order",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenB}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/orders/{{orderAId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "orders",
+            "{{orderAId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "pm.test(\"TC-011 status 403\", () => pm.response.to.have.status(403));",
+              "const schema = {\"type\": \"object\", \"required\": [\"error\"], \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"properties\": {\"code\": {\"type\": \"string\"}, \"message\": {\"type\": \"string\"}}}}};",
+              "pm.test(\"TC-011 error body schema\", () => pm.response.to.have.jsonSchema(schema));",
+              "pm.test(\"TC-011 foreign resource forbidden\", () => pm.expect(pm.response.json().error.code).to.eql(\"FORBIDDEN\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-012 Nonexistent order",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/orders/999999",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "orders",
+            "999999"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "pm.test(\"TC-012 status 404\", () => pm.response.to.have.status(404));",
+              "const schema = {\"type\": \"object\", \"required\": [\"error\"], \"properties\": {\"error\": {\"type\": \"object\", \"required\": [\"code\", \"message\"], \"properties\": {\"code\": {\"type\": \"string\"}, \"message\": {\"type\": \"string\"}}}}};",
+              "pm.test(\"TC-012 error body schema\", () => pm.response.to.have.jsonSchema(schema));",
+              "pm.test(\"TC-012 not found code\", () => pm.expect(pm.response.json().error.code).to.eql(\"ORDER_NOT_FOUND\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-013 List orders with pagination",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/orders?page=1&limit=1",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "orders"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "1"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "pm.test(\"TC-013 status 200\", () => pm.response.to.have.status(200));",
+              "const schema = {\"type\": \"object\", \"required\": [\"data\", \"pagination\"], \"properties\": {\"data\": {\"type\": \"array\"}, \"pagination\": {\"type\": \"object\", \"required\": [\"page\", \"limit\", \"total\", \"totalPages\"], \"properties\": {\"page\": {\"type\": \"integer\"}, \"limit\": {\"type\": \"integer\"}, \"total\": {\"type\": \"integer\"}, \"totalPages\": {\"type\": \"integer\"}}}}};",
+              "pm.test(\"TC-013 pagination body schema\", () => pm.response.to.have.jsonSchema(schema));",
+              "const body = pm.response.json();",
+              "pm.test(\"TC-013 pagination rules\", () => {",
+              "  pm.expect(body.pagination.page).to.eql(1);",
+              "  pm.expect(body.pagination.limit).to.eql(1);",
+              "  pm.expect(body.data.length).to.be.at.most(1);",
+              "  pm.expect(body.pagination.total).to.be.at.least(1);",
+              "});",
+              "pm.test(\"TC-013 only own resources\", () => body.data.forEach(o => pm.expect(o.ownerId).to.eql(pm.environment.get(\"userAId\"))));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-014a Idempotent confirm - first call",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/orders/{{orderAId}}/confirm",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "orders",
+            "{{orderAId}}",
+            "confirm"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "pm.test(\"TC-014 first confirm status 200\", () => pm.response.to.have.status(200));",
+              "const schema = {\"type\": \"object\", \"required\": [\"id\", \"ownerId\", \"item\", \"quantity\", \"totalAmount\", \"status\", \"createdAt\", \"confirmedAt\"], \"properties\": {\"id\": {\"type\": \"string\"}, \"ownerId\": {\"type\": \"string\"}, \"item\": {\"type\": \"string\"}, \"quantity\": {\"type\": \"integer\"}, \"totalAmount\": {\"type\": \"number\"}, \"status\": {\"type\": \"string\"}, \"createdAt\": {\"type\": \"string\"}, \"confirmedAt\": {\"anyOf\": [{\"type\": \"string\"}, {\"type\": \"null\"}]}}};",
+              "pm.test(\"TC-014 first confirm schema\", () => pm.response.to.have.jsonSchema(schema));",
+              "const body = pm.response.json();",
+              "pm.test(\"TC-014 first confirm state\", () => {",
+              "  pm.expect(body.status).to.eql(\"confirmed\");",
+              "  pm.expect(body.confirmedAt).to.be.a(\"string\");",
+              "});",
+              "pm.environment.set(\"confirmedAtFirst\", body.confirmedAt);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-014b Idempotent confirm - repeat same operation",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/orders/{{orderAId}}/confirm",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "orders",
+            "{{orderAId}}",
+            "confirm"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "pm.test(\"TC-014 second confirm status 200\", () => pm.response.to.have.status(200));",
+              "const schema = {\"type\": \"object\", \"required\": [\"id\", \"ownerId\", \"item\", \"quantity\", \"totalAmount\", \"status\", \"createdAt\", \"confirmedAt\"], \"properties\": {\"id\": {\"type\": \"string\"}, \"ownerId\": {\"type\": \"string\"}, \"item\": {\"type\": \"string\"}, \"quantity\": {\"type\": \"integer\"}, \"totalAmount\": {\"type\": \"number\"}, \"status\": {\"type\": \"string\"}, \"createdAt\": {\"type\": \"string\"}, \"confirmedAt\": {\"anyOf\": [{\"type\": \"string\"}, {\"type\": \"null\"}]}}};",
+              "pm.test(\"TC-014 second confirm schema\", () => pm.response.to.have.jsonSchema(schema));",
+              "const body = pm.response.json();",
+              "pm.test(\"TC-014 repeated call keeps final effect\", () => {",
+              "  pm.expect(body.status).to.eql(\"confirmed\");",
+              "  pm.expect(body.confirmedAt).to.eql(pm.environment.get(\"confirmedAtFirst\"));",
+              "  pm.expect(body.id).to.eql(pm.environment.get(\"orderAId\"));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-014c Idempotent confirm - verify final state",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenA}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/orders/{{orderAId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "orders",
+            "{{orderAId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "",
+              "pm.test(\"TC-014 final verification status 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"TC-014 final state confirmed once\", () => {",
+              "  pm.expect(body.status).to.eql(\"confirmed\");",
+              "  pm.expect(body.confirmedAt).to.eql(pm.environment.get(\"confirmedAtFirst\"));",
+              "});",
+              "pm.environment.unset(\"passA\");",
+              "pm.environment.unset(\"passB\");"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

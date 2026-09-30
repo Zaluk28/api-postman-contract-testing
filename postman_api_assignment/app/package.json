@@ -1,0 +1,13 @@
+{
+  "name": "orders-api-postman-contract",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Small dependency-free Orders API for automated Postman contract testing",
+  "scripts": {
+    "start": "node server.js",
+    "start:broken": "CONTRACT_BREAK=1 node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

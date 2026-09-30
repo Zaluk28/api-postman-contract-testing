@@ -1,0 +1,19 @@
+Local verifier against http://127.0.0.1:3000
+API CONTRACT_BREAK=1
+---
+TC-001 PASS - Register valid user A
+TC-002 PASS - Register valid user B
+TC-003 PASS - Missing required password
+TC-004 PASS - Login user A valid
+TC-005 PASS - Login invalid password
+TC-006 PASS - Create valid protected order
+TC-007 PASS - Create order missing mandatory item
+TC-008 PASS - Protected request without credentials
+TC-009 PASS - Protected request with invalid token
+TC-010 FAIL - Get own order and verify contract/persistence: BODY CONTRACT FAIL: required Order field missing or wrong type
+TC-011 PASS - User B cannot access user A order
+TC-012 PASS - Nonexistent order
+TC-013 PASS - Pagination
+TC-014 PASS - Idempotent confirm final effect
+---
+RESULT: 13 passed, 1 failed, 14 matrix cases

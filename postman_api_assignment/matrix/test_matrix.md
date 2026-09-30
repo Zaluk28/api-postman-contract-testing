@@ -1,0 +1,18 @@
+# Matriz de casos de prueba
+
+| ID | Operación | Riesgo | Precondiciones / datos | Resultado esperado | Aserciones clave | Limpieza |
+|---|---|---|---|---|---|---|
+| TC-001 | POST /auth/register | Colisión o respuesta incompleta | API limpia; username/password generados en runtime | 201; token Bearer y user correctos | status; campos; username; token | Reinicio de API/valores runtime |
+| TC-002 | POST /auth/register | No poder probar aislamiento | TC-001 ejecutado; userB/passwordB runtime | 201 y token para user B | status; username; token | Igual |
+| TC-003 | POST /auth/register | Aceptar payload inválido | API activa; sin password | 400 VALIDATION_ERROR | status; esquema de error; code | N/A |
+| TC-004 | POST /auth/login | Token no emitido o formato incorrecto | user A existe; credenciales runtime A | 200 y Bearer token | status; token; tokenType | token reemplazable |
+| TC-005 | POST /auth/login | Autenticación indebida | user A existe; password erróneo | 401 INVALID_CREDENTIALS | status; esquema error; code | N/A |
+| TC-006 | POST /orders | Reglas de negocio/propiedad/total incorrectos | token A; item=Keyboard, quantity=2 | 201; total=20; owner=A; status=created | status; esquema; reglas negocio; guarda ID | ID runtime |
+| TC-007 | POST /orders | Crear pedido incompleto | token A; quantity=2 sin item | 400 VALIDATION_ERROR | status; esquema error; code | N/A |
+| TC-008 | POST /orders | Acceso anónimo a recurso protegido | ninguna; pedido válido sin Authorization | 401 AUTH_REQUIRED | status; esquema error; code | N/A |
+| TC-009 | GET /orders/{id} | Aceptar credencial falsa | pedido A existe; Bearer not-a-valid-token | 401 INVALID_TOKEN | status; esquema error; code | N/A |
+| TC-010 | GET /orders/{id} | Cambio no persistido o respuesta incompatible | pedido A existe; token A; orderAId runtime | 200; pedido creado persiste y cumple esquema | status; body schema; id/item/quantity/status | N/A |
+| TC-011 | GET /orders/{id} | Broken Object Level Authorization | pedido A; token B; orderAId con token B | 403 FORBIDDEN | status; esquema error; code | N/A |
+| TC-012 | GET /orders/{id} | Respuesta ambigua o 500 | token A; id=999999 | 404 ORDER_NOT_FOUND | status; esquema error; code | N/A |
+| TC-013 | GET /orders?page=1&limit=1 | Ignorar parámetros/mezclar propietarios | pedido A; token A; page=1, limit=1 | 200; máximo 1 elemento; metadatos coherentes | status; esquema; page/limit/length/owner | N/A |
+| TC-014 | PUT /orders/{id}/confirm x2 + GET | Duplicar efecto al repetir operación | pedido A; token A; misma operación confirm repetida | estado final confirmed; confirmedAt no cambia | 1ra respuesta; 2da conserva confirmedAt; GET final | Reinicio de API |
